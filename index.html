@@ -837,8 +837,24 @@
             || ((Number(a.no) || 9999) - (Number(b.no) || 9999));
     }
 
+    // 입주사미화 배치: 첫째 칸은 팀장 혼자, 둘째 칸부터 3명씩.
+    // 같은 휴가 상태(연차·반차 등)인 사람은 3명씩 함께 묶어 한 칸에 적고 콤보박스에 그 상태를 선택
+    function packRows(members) {
+        const rows = [];
+        let order = 0;
+        const leader = members.find(m => m.leader);
+        if (leader) rows.push({ order: order++, people: [leader] });
+        const rest = members.filter(m => m !== leader);
+        const keys = [...new Set(rest.map(m => stKey(m.st)))].sort((a, b) => (a === '' ? 0 : 1) - (b === '' ? 0 : 1));   // 휴가 없는 사람 먼저
+        keys.forEach(k => {
+            const g = rest.filter(m => stKey(m.st) === k);
+            for (let i = 0; i < g.length; i += 3) rows.push({ order: order++, people: g.slice(i, i + 3) });
+        });
+        return rows;
+    }
+
     function buildWorkerRows(members) {
-        let rows = members.map((m, i) => ({ order: i, people: [m] }));
+        let rows = packRows(members);
         const key = r => stKey(r.people[0].st);
         const sameKey = r => r.people.every(p => stKey(p.st) === key(r));
         while (rows.length > WORKER_ROWS) {
@@ -876,7 +892,7 @@
         });
         return has;
     }
-    function fitNameFont(input) { input.style.fontSize = input.value.length > 6 ? '11px' : ''; }
+    function fitNameFont(input) { const n = input.value.length; input.style.fontSize = n > 12 ? '10px' : (n > 6 ? '11px' : ''); }
 
     function fillWorkersIfEmpty() {
         const date = document.getElementById('work-date').value;
@@ -949,7 +965,7 @@
                 && !(e.joinDate && e.joinDate > date)
                 && !(e.retireDate && e.retireDate < date))
             .sort(compareByRank)
-            .map(e => ({ name: e.name, st: statusOf(e, date) }));
+            .map(e => ({ name: e.name, st: statusOf(e, date), leader: String(e.position || '').includes('팀장') }));
 
         const rows = buildWorkerRows(members);
         workerRowEls().forEach((row, i) => {
